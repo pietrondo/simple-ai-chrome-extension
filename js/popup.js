@@ -1,63 +1,83 @@
 const chatHistory = document.getElementById('chat-history');
 const chatInput = document.getElementById('chat-input');
 const sendButton = document.getElementById('send-button');
-const modelSelector = document.getElementById('model-selector');
+
 
 // Funzione per aggiungere un messaggio alla cronologia della chat
 function addMessage(sender, message) {
     const messageElement = document.createElement('div');
-    const senderElement = document.createElement('strong');
-    senderElement.textContent = `${sender}: `;
-    messageElement.appendChild(senderElement);
+    messageElement.classList.add('message');
+    
+    if (sender === 'You') {
+        messageElement.classList.add('user-message');
+    } else if (sender === 'AI') {
+        messageElement.classList.add('ai-message');
+    }
 
-    const messageText = document.createTextNode(message);
-    messageElement.appendChild(messageText);
-
+    messageElement.textContent = message;
     chatHistory.appendChild(messageElement);
     chatHistory.scrollTop = chatHistory.scrollHeight; // Scroll to bottom
 }
 
-// Carica i modelli da OpenRouter
-async function loadModels() {
-    try {
-        const response = await fetch('https://openrouter.ai/api/v1/models');
-        const data = await response.json();
-        data.data.forEach(model => {
-            const option = document.createElement('option');
-            option.value = model.id;
-            option.textContent = model.name;
-            modelSelector.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Errore nel caricamento dei modelli:', error);
-        addMessage('System', 'Errore nel caricamento dei modelli da OpenRouter.');
+
+
+// Funzione per mostrare/nascondere il loader
+function toggleLoader(show) {
+    const existingLoader = chatHistory.querySelector('.loader');
+    if (show && !existingLoader) {
+        const loader = document.createElement('div');
+        loader.classList.add('loader');
+        chatHistory.appendChild(loader);
+    } else if (!show && existingLoader) {
+        existingLoader.remove();
     }
 }
 
 // Invia un messaggio al background script
-function sendMessage() {
-  const message = chatInput.value.trim();
-  const selectedModel = modelSelector.value;
-  if (message) {
-    addMessage('You', message);
-    chrome.runtime.sendMessage({ type: 'chat_message', message, model: selectedModel }, (response) => {
-        if (chrome.runtime.lastError) {
-            console.error(chrome.runtime.lastError.message);
-            addMessage('System', `Errore: ${chrome.runtime.lastError.message}`);
-        } else {
-            addMessage('AI', response.reply);
+async function sendMessage() {
+    const message = chatInput.value.trim();
+    if (message) {
+        const { selectedModel } = await chrome.storage.sync.get('selectedModel');
+        if (!selectedModel) {
+            addMessage('System', 'Per favore, seleziona un modello nelle opzioni.');
+            return;
         }
-    });
-    chatInput.value = '';
-  }
+        addMessage('You', message);
+        chatInput.value = '';
+        toggleLoader(true);
+        
+        try {
+            const response = await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({ type: 'chat_message', message, model: selectedModel }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(chrome.runtime.lastError);
+                    } else {
+                        resolve(response);
+                    }
+                });
+            });
+            addMessage('AI', response.reply);
+        } catch (error) {
+            console.error(error);
+            addMessage('System', `Errore: ${error.message}`);
+        } finally {
+            toggleLoader(false);
+        }
+    }
 }
 
 sendButton.addEventListener('click', sendMessage);
+
 chatInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = (chatInput.scrollHeight) + 'px';
 });
 
 // Funzione per caricare e visualizzare la cronologia
@@ -74,8 +94,26 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     }
 });
 
-// Carica la cronologia all'apertura del popup
-loadChatHistory();
+// Carica la cronologia e i modelli all'apertura del popup
+document.addEventListener('DOMContentLoaded', () => {
+    const optionsButton = document.getElementById('options-button');
 
-// Carica i modelli all'avvio
-loadModels();
+    optionsButton.addEventListener('click', () => {
+        chrome.runtime.openOptionsPage();
+    });
+
+    // Controlla se c'è testo selezionato da caricare
+    chrome.storage.local.get('selectedTextForPopup', function(data) {
+        if (data.selectedTextForPopup) {
+            chatInput.value = `"${data.selectedTextForPopup}"\n\n`;
+            chatInput.focus();
+            chatInput.style.height = 'auto';
+            chatInput.style.height = (chatInput.scrollHeight) + 'px';
+            // Pulisci il testo dopo averlo usato
+            chrome.storage.local.remove('selectedTextForPopup');
+        }
+    });
+
+    loadChatHistory();
+    sendButton.innerHTML = '&#10148;'; // Usa un'entità HTML per la freccia
+});

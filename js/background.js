@@ -67,32 +67,15 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId === "send-to-ai" && info.selectionText) {
-        const prompt = info.selectionText;
+        // Salva il testo selezionato per caricarlo nel popup
+        await chrome.storage.local.set({ selectedTextForPopup: info.selectionText });
 
-        // Aggiungiamo il prompt alla cronologia per visibilità
-        await updateChatHistory({ sender: 'You', message: prompt });
-
-        try {
-            // Usiamo un modello predefinito, o potremmo renderlo configurabile
-            const response = await callOpenRouter(prompt, 'openai/gpt-3.5-turbo'); 
-            await updateChatHistory({ sender: 'AI', message: response });
-
-            // Notifica l'utente che la risposta è pronta
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'icons/icon128.png',
-                title: 'Risposta ricevuta',
-                message: 'La risposta della AI è stata aggiunta alla cronologia chat.'
-            });
-
-        } catch (error) {
-            console.error('Errore durante l\'invio alla AI:', error);
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'icons/icon128.png',
-                title: 'Errore',
-                message: 'Non è stato possibile ricevere una risposta dalla AI.'
-            });
-        }
+        // Notifica l'utente di aprire il popup per continuare
+        chrome.notifications.create({
+            type: 'basic',
+            iconUrl: 'icons/icon128.png',
+            title: 'Testo inviato all\'assistente',
+            message: 'Apri il popup per aggiungere la tua domanda e chattare con l\'AI.'
+        });
     }
 });

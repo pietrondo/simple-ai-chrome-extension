@@ -1,16 +1,30 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
-    <title>Opzioni AI Assistant</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impostazioni - Simple AI Assistant</title>
     <link rel="stylesheet" type="text/css" href="css/options.css">
 </head>
 <body>
-    <h1>Impostazioni</h1>
     <div class="container">
-        <label for="apiKey">Chiave API OpenRouter:</label>
-        <input type="password" id="apiKey" placeholder="Inserisci la tua chiave API">
-        <button id="save">Salva</button>
-        <p id="status"></p>
+        <header>
+            <h1>Impostazioni</h1>
+            <p>Configura le impostazioni per l'estensione Simple AI Assistant.</p>
+        </header>
+        <main>
+            <div class="form-group">
+                <label for="apiKey">Chiave API OpenRouter</label>
+                <input type="password" id="apiKey" placeholder="sk-or-...">
+                <button id="save-api-key">Salva Chiave</button>
+            </div>
+            <div class="form-group">
+                <label for="model-selector">Modello AI (Router)</label>
+                <select id="model-selector"></select>
+                <button id="save-model">Salva Modello</button>
+            </div>
+            <p id="status"></p>
+        </main>
     </div>
     <script src="js/options.js"></script>
 </body>
